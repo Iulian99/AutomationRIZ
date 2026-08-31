@@ -1,129 +1,454 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ro">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CreateRaport (demo local)</title>
-  <style>
-    body { margin: 0; font-family: Arial, sans-serif; background: #f0f4f8; padding: 24px; }
-    .panel { width: 900px; margin: 0 auto; background: #fff; border: 1px solid #c9d8e5; border-radius: 8px; overflow: hidden; }
-    .panel-title { background: #4a6fa5; color: #fff; font-weight: bold; padding: 10px 16px; }
-    .panel-content { padding: 20px; }
-    .row { margin: 8px 0; display: flex; align-items: center; gap: 8px; }
-    label { width: 180px; font-weight: bold; font-size: 0.9em; }
-    input[type="text"], select, textarea { padding: 6px 8px; border: 1px solid #8fb0cc; border-radius: 4px; }
-    .btn-save { background: #198754; color: #fff; border: none; border-radius: 4px; padding: 10px 20px; font-size: 1em; cursor: pointer; margin-top: 12px; }
-    .wrap { background: #e8edff; color: #669; font-size: 0.85em; width: 400px; }
-  </style>
-</head>
-<body>
-  <form id="createForm" name="createForm" method="post" action="/sample-raport-list.html">
-    <div class="panel">
-      <div class="panel-title">CreateRaport (demo local)</div>
-      <div class="panel-content">
-        <div class="row">
-          <label for="createForm:activitate_input">Activitate (ROF):</label>
-          <select id="createForm:activitate_input" name="createForm:activitate_input">
-            <option value="">Select item from ROF</option>
-            <option value="ROF 11.1.01">ROF 11.1.1 Analizeaza...</option>
-            <option value="ROF 11.1.02">ROF 11.1.2 Realizeaza...</option>
-            <option value="ROF 11.1.10">ROF 11.1.10 Testeaza...</option>
-          </select>
-          <textarea id="createForm:activitateWrap" class="wrap" rows="2" readonly></textarea>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CreateRaport (demo local)</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #f0f4f8;
+        padding: 24px;
+      }
+      .panel {
+        width: 900px;
+        margin: 0 auto;
+        background: #fff;
+        border: 1px solid #c9d8e5;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .panel-title {
+        background: #4a6fa5;
+        color: #fff;
+        font-weight: bold;
+        padding: 10px 16px;
+      }
+      .panel-content {
+        padding: 20px;
+      }
+      .row {
+        margin: 8px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      label {
+        width: 180px;
+        font-weight: bold;
+        font-size: 0.9em;
+      }
+      input[type="text"],
+      select,
+      textarea {
+        padding: 6px 8px;
+        border: 1px solid #8fb0cc;
+        border-radius: 4px;
+      }
+      .btn-save {
+        background: #198754;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        padding: 10px 20px;
+        font-size: 1em;
+        cursor: pointer;
+        margin-top: 12px;
+      }
+      .wrap {
+        background: #e8edff;
+        color: #669;
+        font-size: 0.85em;
+        width: 400px;
+      }
+      /* imită lista PrimeFaces SelectOneMenu */
+      .pf-combo {
+        position: relative;
+        display: inline-block;
+      }
+      .pf-combo input {
+        width: 260px;
+      }
+      .pf-items {
+        display: none;
+        position: absolute;
+        z-index: 100;
+        top: 100%;
+        left: 0;
+        margin: 2px 0 0;
+        padding: 4px 0;
+        list-style: none;
+        background: #fff;
+        border: 1px solid #8fb0cc;
+        border-radius: 4px;
+        max-height: 180px;
+        overflow-y: auto;
+        min-width: 260px;
+      }
+      .pf-items.open {
+        display: block;
+      }
+      .pf-items li {
+        padding: 6px 10px;
+        cursor: pointer;
+        font-size: 0.85em;
+      }
+      .pf-items li:hover {
+        background: #e3edf5;
+      }
+    </style>
+  </head>
+  <body>
+    <form
+      id="createForm"
+      name="createForm"
+      method="post"
+      action="/sample-raport-list.html"
+    >
+      <div class="panel">
+        <div class="panel-title">CreateRaport (demo local)</div>
+        <div class="panel-content">
+          <div class="row">
+            <label>Activitate (ROF):</label>
+            <span
+              class="pf-combo"
+              data-wrap="createForm:activitateWrap"
+              data-select="createForm:activitate_input"
+            >
+              <input
+                id="createForm:activitate_focus"
+                type="text"
+                aria-owns="createForm:activitate_items"
+                autocomplete="off"
+                placeholder="Alege..."
+              />
+              <ul id="createForm:activitate_items" class="pf-items">
+                <li
+                  id="createForm:activitate_0"
+                  data-label="Select item from ROF"
+                  data-value=""
+                >
+                  Select item from ROF
+                </li>
+                <li
+                  id="createForm:activitate_1"
+                  data-label="ROF 11.1.1 Analizeaza..."
+                  data-value="ROF 11.1.01"
+                >
+                  ROF 11.1.1 Analizeaza...
+                </li>
+                <li
+                  id="createForm:activitate_2"
+                  data-label="ROF 11.1.2 Realizeaza..."
+                  data-value="ROF 11.1.02"
+                >
+                  ROF 11.1.2 Realizeaza...
+                </li>
+                <li
+                  id="createForm:activitate_3"
+                  data-label="ROF 11.1.10 Testeaza..."
+                  data-value="ROF 11.1.10"
+                >
+                  ROF 11.1.10 Testeaza...
+                </li>
+              </ul>
+            </span>
+            <select
+              id="createForm:activitate_input"
+              name="createForm:activitate_input"
+              hidden
+            >
+              <option value="">Select item from ROF</option>
+              <option value="ROF 11.1.01">ROF 11.1.1 Analizeaza...</option>
+              <option value="ROF 11.1.02">ROF 11.1.2 Realizeaza...</option>
+              <option value="ROF 11.1.10">ROF 11.1.10 Testeaza...</option>
+            </select>
+            <textarea
+              id="createForm:activitateWrap"
+              class="wrap"
+              rows="2"
+              readonly
+            ></textarea>
+          </div>
+          <div class="row">
+            <label>Atribuții:</label>
+            <span
+              class="pf-combo"
+              data-wrap="createForm:atributiiWrap"
+              data-select="createForm:atributii_input"
+            >
+              <input
+                id="createForm:atributii_focus"
+                type="text"
+                aria-owns="createForm:atributii_items"
+                autocomplete="off"
+                placeholder="Alege..."
+              />
+              <ul id="createForm:atributii_items" class="pf-items">
+                <li
+                  id="createForm:atributii_0"
+                  data-label="Select item from ATRIBUTII"
+                  data-value=""
+                >
+                  Select item from ATRIBUTII
+                </li>
+                <li
+                  id="createForm:atributii_1"
+                  data-label="1.Participa..."
+                  data-value="1"
+                >
+                  1.Participa...
+                </li>
+                <li
+                  id="createForm:atributii_7"
+                  data-label="7.Desfasoara activitasi..."
+                  data-value="7"
+                >
+                  7.Desfasoara activitasi...
+                </li>
+              </ul>
+            </span>
+            <select
+              id="createForm:atributii_input"
+              name="createForm:atributii_input"
+              hidden
+            >
+              <option value="">Select item from ATRIBUTII</option>
+              <option value="1">1.Participa...</option>
+              <option value="7">7.Desfasoara activitasi...</option>
+            </select>
+            <textarea
+              id="createForm:atributiiWrap"
+              class="wrap"
+              rows="2"
+              readonly
+            ></textarea>
+          </div>
+          <div class="row">
+            <label>Lucrare:</label>
+            <span
+              class="pf-combo"
+              data-wrap="createForm:lucrareWrap"
+              data-select="createForm:lucrare_input"
+            >
+              <input
+                id="createForm:lucrare_focus"
+                type="text"
+                aria-owns="createForm:lucrare_items"
+                autocomplete="off"
+                placeholder="Alege..."
+              />
+              <ul id="createForm:lucrare_items" class="pf-items">
+                <li
+                  id="createForm:lucrare_0"
+                  data-label="Select item from LUCRARI"
+                  data-value=""
+                >
+                  Select item from LUCRARI
+                </li>
+                <li
+                  id="createForm:lucrare_1"
+                  data-label="6 Centralizare rapoarte de activitate"
+                  data-value="6"
+                >
+                  6 Centralizare rapoarte de activitate
+                </li>
+                <li
+                  id="createForm:lucrare_2"
+                  data-label="7 Completare raport de activitate"
+                  data-value="7"
+                >
+                  7 Completare raport de activitate
+                </li>
+              </ul>
+            </span>
+            <select
+              id="createForm:lucrare_input"
+              name="createForm:lucrare_input"
+              hidden
+            >
+              <option value="">Select item from LUCRARI</option>
+              <option value="6">6 Centralizare rapoarte de activitate</option>
+              <option value="7">7 Completare raport de activitate</option>
+            </select>
+            <textarea
+              id="createForm:lucrareWrap"
+              class="wrap"
+              rows="2"
+              readonly
+            ></textarea>
+          </div>
+          <div class="row">
+            <label for="createForm:intrare">Intrare:</label>
+            <input
+              id="createForm:intrare"
+              type="text"
+              name="createForm:intrare"
+            />
+            <label for="createForm:iesire" style="width: 60px">Ieșire:</label>
+            <input
+              id="createForm:iesire"
+              type="text"
+              name="createForm:iesire"
+            />
+          </div>
+          <div class="row">
+            <label for="createForm:principale">Principale (min):</label>
+            <input
+              id="createForm:principale"
+              type="text"
+              name="createForm:principale"
+              value="0"
+            />
+            <label for="createForm:conexe" style="width: 60px">Conexe:</label>
+            <input
+              id="createForm:conexe"
+              type="text"
+              name="createForm:conexe"
+              value="0"
+            />
+            <label for="createForm:neproductive" style="width: 80px"
+              >Neprod.:</label
+            >
+            <input
+              id="createForm:neproductive"
+              type="text"
+              name="createForm:neproductive"
+              value="0"
+            />
+          </div>
+          <div class="row">
+            <label>Urgență:</label>
+            <label
+              ><input type="radio" name="createForm:urgenta" value="DA" />
+              DA</label
+            >
+            <label
+              ><input type="radio" name="createForm:urgenta" value="NU" />
+              NU</label
+            >
+          </div>
+          <div class="row">
+            <label>Utilizare IT:</label>
+            <label
+              ><input type="radio" name="createForm:utilizareIt" value="DA" />
+              DA</label
+            >
+            <label
+              ><input type="radio" name="createForm:utilizareIt" value="NU" />
+              NU</label
+            >
+          </div>
+          <div class="row">
+            <label>Tip activitate:</label>
+            <label
+              ><input
+                type="radio"
+                name="createForm:tipActivitate"
+                value="INDIVIDUALA"
+              />
+              INDIVIDUALA</label
+            >
+            <label
+              ><input
+                type="radio"
+                name="createForm:tipActivitate"
+                value="COLECTIVA"
+              />
+              COLECTIVA</label
+            >
+          </div>
+          <div class="row">
+            <label for="createForm:act">Act:</label>
+            <textarea
+              id="createForm:act"
+              name="createForm:act"
+              rows="2"
+              cols="40"
+            ></textarea>
+          </div>
+          <div class="row">
+            <label for="createForm:denumireIt">Denumire IT:</label>
+            <textarea
+              id="createForm:denumireIt"
+              name="createForm:denumireIt"
+              rows="2"
+              cols="40"
+            ></textarea>
+          </div>
+          <div class="row">
+            <label for="createForm:observatii">Observații:</label>
+            <textarea
+              id="createForm:observatii"
+              name="createForm:observatii"
+              rows="2"
+              cols="40"
+            ></textarea>
+          </div>
+          <input
+            type="submit"
+            name="createForm:j_idt121"
+            value="Save"
+            class="btn-save"
+          />
         </div>
-        <div class="row">
-          <label for="createForm:atributii_input">Atribuții:</label>
-          <select id="createForm:atributii_input" name="createForm:atributii_input">
-            <option value="">Select item from ATRIBUTII</option>
-            <option value="1">1.Participa...</option>
-            <option value="7">7.Desfasoara activitasi...</option>
-          </select>
-          <textarea id="createForm:atributiiWrap" class="wrap" rows="2" readonly></textarea>
-        </div>
-        <div class="row">
-          <label for="createForm:lucrare_input">Lucrare:</label>
-          <select id="createForm:lucrare_input" name="createForm:lucrare_input">
-            <option value="">Select item from LUCRARI</option>
-            <option value="6">6 Centralizare rapoarte de activitate</option>
-            <option value="7">7 Completare raport de activitate</option>
-          </select>
-          <textarea id="createForm:lucrareWrap" class="wrap" rows="2" readonly></textarea>
-        </div>
-        <div class="row">
-          <label for="createForm:intrare">Intrare:</label>
-          <input id="createForm:intrare" type="text" name="createForm:intrare">
-          <label for="createForm:iesire" style="width:60px">Ieșire:</label>
-          <input id="createForm:iesire" type="text" name="createForm:iesire">
-        </div>
-        <div class="row">
-          <label for="createForm:principale">Principale (min):</label>
-          <input id="createForm:principale" type="text" name="createForm:principale" value="0">
-          <label for="createForm:conexe" style="width:60px">Conexe:</label>
-          <input id="createForm:conexe" type="text" name="createForm:conexe" value="0">
-          <label for="createForm:neproductive" style="width:80px">Neprod.:</label>
-          <input id="createForm:neproductive" type="text" name="createForm:neproductive" value="0">
-        </div>
-        <div class="row">
-          <label>Urgență:</label>
-          <label><input type="radio" name="createForm:urgenta" value="DA"> DA</label>
-          <label><input type="radio" name="createForm:urgenta" value="NU"> NU</label>
-        </div>
-        <div class="row">
-          <label>Utilizare IT:</label>
-          <label><input type="radio" name="createForm:utilizareIt" value="DA"> DA</label>
-          <label><input type="radio" name="createForm:utilizareIt" value="NU"> NU</label>
-        </div>
-        <div class="row">
-          <label>Tip activitate:</label>
-          <label><input type="radio" name="createForm:tipActivitate" value="INDIVIDUALA"> INDIVIDUALA</label>
-          <label><input type="radio" name="createForm:tipActivitate" value="COLECTIVA"> COLECTIVA</label>
-        </div>
-        <div class="row">
-          <label for="createForm:act">Act:</label>
-          <textarea id="createForm:act" name="createForm:act" rows="2" cols="40"></textarea>
-        </div>
-        <div class="row">
-          <label for="createForm:denumireIt">Denumire IT:</label>
-          <textarea id="createForm:denumireIt" name="createForm:denumireIt" rows="2" cols="40"></textarea>
-        </div>
-        <div class="row">
-          <label for="createForm:observatii">Observații:</label>
-          <textarea id="createForm:observatii" name="createForm:observatii" rows="2" cols="40"></textarea>
-        </div>
-        <input type="submit" name="createForm:j_idt121" value="Save" class="btn-save">
       </div>
-    </div>
-  </form>
+    </form>
 
-  <script>
-    // simulăm AJAX-ul valueChange: la schimbarea selectului se umple Wrap-ul
-    function bindWrap(selectId, wrapId) {
-      const sel = document.getElementById(selectId);
-      const wrap = document.getElementById(wrapId);
-      sel.addEventListener("change", function () {
-        const opt = sel.options[sel.selectedIndex];
-        wrap.textContent = opt ? opt.textContent.trim() : "";
+    <script>
+      // comportament imitat PrimeFaces: click pe _focus deschide lista;
+      // click pe item setează selectul ascuns + change + umple Wrap-ul
+      document.querySelectorAll(".pf-combo").forEach(function (combo) {
+        const focus = combo.querySelector("input[aria-owns]");
+        const list = combo.querySelector("ul.pf-items");
+        const select = document.getElementById(combo.dataset.select);
+        const wrap = document.getElementById(combo.dataset.wrap);
+
+        focus.addEventListener("click", function () {
+          list.classList.add("open");
+        });
+
+        list.querySelectorAll("li").forEach(function (li) {
+          li.addEventListener("click", function () {
+            list.classList.remove("open");
+            focus.value = li.dataset.label;
+            select.value = li.dataset.value;
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+            wrap.textContent = li.dataset.label;
+          });
+        });
+
+        select.addEventListener("change", function () {
+          const opt = select.options[select.selectedIndex];
+          wrap.textContent = opt ? opt.textContent.trim() : "";
+        });
       });
-    }
-    bindWrap("createForm:activitate_input", "createForm:activitateWrap");
-    bindWrap("createForm:atributii_input", "createForm:atributiiWrap");
-    bindWrap("createForm:lucrare_input", "createForm:lucrareWrap");
 
-    // la Save, navigăm înapoi la listă cu parametrii completați (simulează redirectul)
-    const form = document.getElementById("createForm");
-    form.addEventListener("submit", function (e) {
-      e.preventDefault();
-      const params = new URLSearchParams(window.location.search);
-      const date = params.get("date") || "";
-      const q = new URLSearchParams();
-      if (date) q.set("date", date);
-      q.set("act", document.getElementById("createForm:activitate_input").value);
-      q.set("lucrare", document.getElementById("createForm:lucrare_input").value);
-      q.set("intrare", document.getElementById("createForm:intrare").value);
-      q.set("iesire", document.getElementById("createForm:iesire").value);
-      q.set("principale", document.getElementById("createForm:principale").value);
-      window.location.href = "/sample-raport-list.html?" + q.toString();
-    });
-  </script>
-</body>
+      // la Save, navigăm înapoi la listă cu parametrii completați (simulează redirectul)
+      const form = document.getElementById("createForm");
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        const params = new URLSearchParams(window.location.search);
+        const date = params.get("date") || "";
+        const q = new URLSearchParams();
+        if (date) q.set("date", date);
+        q.set(
+          "act",
+          document.getElementById("createForm:activitate_input").value,
+        );
+        q.set(
+          "lucrare",
+          document.getElementById("createForm:lucrare_input").value,
+        );
+        q.set("intrare", document.getElementById("createForm:intrare").value);
+        q.set("iesire", document.getElementById("createForm:iesire").value);
+        q.set(
+          "principale",
+          document.getElementById("createForm:principale").value,
+        );
+        window.location.href = "/sample-raport-list.html?" + q.toString();
+      });
+    </script>
+  </body>
 </html>

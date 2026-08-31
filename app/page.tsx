@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-type FieldType = "text" | "password" | "select" | "checkbox" | "radio";
+type FieldType =
+  | "text"
+  | "password"
+  | "select"
+  | "checkbox"
+  | "radio"
+  | "combobox";
 
 type FieldConfig = {
   id: string;
@@ -25,6 +31,7 @@ const FIELD_TYPE_LABELS: Record<FieldType, string> = {
   select: "Select (dropdown)",
   checkbox: "Bifă (checkbox)",
   radio: "Radio",
+  combobox: "Combo PrimeFaces (click pe item)",
 };
 
 function uid(): string {
@@ -443,6 +450,83 @@ async function waitForLoginResult(
   return null;
 }
 
+// găsește primul item real din lista unui combo PrimeFaces (aria-owns → *_items),
+// sărind placeholderul al cărui id se termină cu _0
+function findComboboxItem(doc: Document, el: Element): HTMLElement | null {
+  const ownsId = el.getAttribute("aria-owns") ?? "";
+  let items: HTMLElement[] = [];
+  if (ownsId) {
+    const list = doc.getElementById(ownsId);
+    if (list) {
+      items = Array.from(
+        list.querySelectorAll<HTMLElement>("li.ui-selectonemenu-item"),
+      );
+    }
+  }
+  if (items.length === 0) {
+    items = Array.from(
+      doc.querySelectorAll<HTMLElement>(
+        ".ui-selectonemenu-items li.ui-selectonemenu-item",
+      ),
+    );
+  }
+  return items.find((i) => !/_0$/.test(i.id || "")) ?? items[0] ?? null;
+}
+
+// selectează un item din combo-ul PrimeFaces: click pe _focus (deschide lista),
+// apoi click pe itemul potrivit (după valoare/datal-label sau primul item real)
+async function selectComboboxItem(
+  doc: Document,
+  el: Element,
+  value: string,
+): Promise<void> {
+  const html = el as HTMLElement;
+  try {
+    html.click();
+  } catch {
+    // ignorăm
+  }
+  await sleep(400);
+
+  const ownsId = html.getAttribute("aria-owns") ?? "";
+  let items: HTMLElement[] = [];
+  if (ownsId) {
+    const list = doc.getElementById(ownsId);
+    if (list) {
+      items = Array.from(
+        list.querySelectorAll<HTMLElement>("li.ui-selectonemenu-item"),
+      );
+    }
+  }
+  if (items.length === 0) {
+    items = Array.from(
+      doc.querySelectorAll<HTMLElement>(
+        ".ui-selectonemenu-items li.ui-selectonemenu-item",
+      ),
+    );
+  }
+
+  const wanted = value.trim();
+  let target: HTMLElement | null = null;
+  if (wanted) {
+    target =
+      items.find((i) => {
+        const label = (
+          i.getAttribute("data-label") ??
+          i.textContent ??
+          ""
+        ).trim();
+        return label.startsWith(wanted) || (i.id ?? "").endsWith(`_${wanted}`);
+      }) ?? null;
+  }
+  if (!target) {
+    target = findComboboxItem(doc, el);
+  }
+  if (target) {
+    target.click();
+  }
+}
+
 const DEFAULT_CLICK_SELECTOR = "#loginForm\\:idlogin";
 const DEFAULT_INSERT_SELECTOR = "#raportForm\\:j_idt96";
 const DEFAULT_SAVE_SELECTOR = 'input[name="createForm\\:j_idt121"]';
@@ -452,23 +536,23 @@ const DEFAULT_CREATE_FIELDS: FieldConfig[] = [
   {
     id: uid(),
     label: "Activitate (ROF)",
-    selector: "#createForm\\:activitate_input",
+    selector: "#createForm\\:activitate_focus",
     value: "",
-    type: "select",
+    type: "combobox",
   },
   {
     id: uid(),
     label: "Atribuții",
-    selector: "#createForm\\:atributii_input",
+    selector: "#createForm\\:atributii_focus",
     value: "",
-    type: "select",
+    type: "combobox",
   },
   {
     id: uid(),
     label: "Lucrare",
-    selector: "#createForm\\:lucrare_input",
+    selector: "#createForm\\:lucrare_focus",
     value: "",
-    type: "select",
+    type: "combobox",
   },
   {
     id: uid(),
@@ -722,7 +806,18 @@ export default function Home() {
       if (savedCreateFields) {
         const parsed = JSON.parse(savedCreateFields);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setFieldsCreate(parsed as FieldConfig[]);
+          // migrare: vechile selecturi pe *_input devin combo-uri PrimeFaces pe *_focus
+          setFieldsCreate(
+            (parsed as FieldConfig[]).map((f) =>
+              f.type === "select" && f.selector.endsWith("_input")
+                ? {
+                    ...f,
+                    type: "combobox",
+                    selector: f.selector.replace(/_input$/, "_focus"),
+                  }
+                : f,
+            ),
+          );
         }
       }
     } catch {
@@ -923,6 +1018,16 @@ export default function Home() {
         const el = els[0] as HTMLInputElement;
         el.checked = TRUE_VALUES.has(f.value.trim().toLowerCase());
         dispatchEvents(el);
+      } else if (f.type === "combobox") {
+        // variantă sincronă (Completare instant): click pe focus + primul item real
+        const el = els[0] as HTMLElement;
+        try {
+          el.click();
+        } catch {
+          // ignorăm
+        }
+        const item = findComboboxItem(doc, el);
+        if (item) item.click();
       } else {
         const el = els[0];
         nativeSetter(el, f.value);
@@ -1324,7 +1429,9 @@ export default function Home() {
                   "info",
                 );
                 await sleep(Math.round(sp.field / 2));
-                if (
+                if (cf.type === "combobox") {
+                  await selectComboboxItem(curDoc, cel, cf.value);
+                } else if (
                   (cf.type === "text" || cf.type === "password") &&
                   typingSimulation &&
                   cf.value.length > 0

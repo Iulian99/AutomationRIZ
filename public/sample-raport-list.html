@@ -1,66 +1,128 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ro">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RaportItemsList (demo local)</title>
-  <style>
-    body { margin: 0; font-family: Arial, sans-serif; background: #f0f4f8; padding: 24px; }
-    .panel { width: 900px; margin: 0 auto; background: #fff; border: 1px solid #c9d8e5; border-radius: 8px; overflow: hidden; }
-    .panel-title { background: #4a6fa5; color: #fff; font-weight: bold; padding: 10px 16px; }
-    .panel-content { padding: 20px; }
-    .btn { background: #4a6fa5; color: #fff; border: none; border-radius: 4px; padding: 8px 14px; font-size: 0.9em; cursor: pointer; margin: 4px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 12px; font-size: 0.85em; }
-    th, td { border: 1px solid #c9d8e5; padding: 6px 8px; text-align: left; }
-    th { background: #e3edf5; }
-    h2 { margin: 8px 0; }
-  </style>
-</head>
-<body>
-  <div class="panel">
-    <div class="panel-title">RaportItemsList (demo local)</div>
-    <div class="panel-content">
-      <h2 id="raportTitle">Raport individual zilnic — data necunoscută</h2>
-      <p>
-        <button id="j_idt14" type="button" class="btn">L O G O U T</button>
-        <button id="j_idt16" type="button" class="btn">I N D E X</button>
-      </p>
-      <p>
-        <button id="raportForm:j_idt96" type="button" class="btn">Insert Raport Individual Zilnic</button>
-      </p>
-      <table id="raportForm:raportTable">
-        <thead>
-          <tr>
-            <th>Id</th><th>Activitate</th><th>Lucrare</th><th>Intrare</th><th>Iesire</th><th>Total</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RaportItemsList (demo local)</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #f0f4f8;
+        padding: 24px;
+      }
+      .panel {
+        width: 900px;
+        margin: 0 auto;
+        background: #fff;
+        border: 1px solid #c9d8e5;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .panel-title {
+        background: #4a6fa5;
+        color: #fff;
+        font-weight: bold;
+        padding: 10px 16px;
+      }
+      .panel-content {
+        padding: 20px;
+      }
+      .btn {
+        background: #4a6fa5;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        padding: 8px 14px;
+        font-size: 0.9em;
+        cursor: pointer;
+        margin: 4px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-top: 12px;
+        font-size: 0.85em;
+      }
+      th,
+      td {
+        border: 1px solid #c9d8e5;
+        padding: 6px 8px;
+        text-align: left;
+      }
+      th {
+        background: #e3edf5;
+      }
+      h2 {
+        margin: 8px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="panel">
+      <div class="panel-title">RaportItemsList (demo local)</div>
+      <div class="panel-content">
+        <h2 id="raportTitle">Raport individual zilnic — data necunoscută</h2>
+        <p>
+          <button id="j_idt14" type="button" class="btn">L O G O U T</button>
+          <button id="j_idt16" type="button" class="btn">I N D E X</button>
+        </p>
+        <p>
+          <button id="raportForm:j_idt96" type="button" class="btn">
+            Insert Raport Individual Zilnic
+          </button>
+        </p>
+        <table id="raportForm:raportTable">
+          <thead>
+            <tr>
+              <th>Id</th>
+              <th>Activitate</th>
+              <th>Lucrare</th>
+              <th>Intrare</th>
+              <th>Iesire</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
-  </div>
 
-  <script>
-    const params = new URLSearchParams(window.location.search);
-    const savedDate = params.get("date");
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const savedDate = params.get("date");
 
-    document.getElementById("j_idt16").addEventListener("click", function () {
-      window.location.href = "/sample-index.html";
-    });
+      document.getElementById("j_idt16").addEventListener("click", function () {
+        window.location.href = "/sample-index.html";
+      });
 
-    document.getElementById("raportForm:j_idt96").addEventListener("click", function () {
-      window.location.href = "/sample-create-raport.html" + (savedDate ? "?date=" + encodeURIComponent(savedDate) : "");
-    });
+      document
+        .getElementById("raportForm:j_idt96")
+        .addEventListener("click", function () {
+          window.location.href =
+            "/sample-create-raport.html" +
+            (savedDate ? "?date=" + encodeURIComponent(savedDate) : "");
+        });
 
-    if (savedDate) {
-      document.getElementById("raportTitle").textContent = "Raport individual zilnic " + savedDate;
-      const tbody = document.querySelector("#raportForm\\:raportTable tbody");
-      const tr = document.createElement("tr");
-      tr.innerHTML = "<td>1</td><td>" + (params.get("act") || "ROF 11.1.01") + "</td><td>" +
-        (params.get("lucrare") || "7") + "</td><td>" + (params.get("intrare") || "08:00") +
-        "</td><td>" + (params.get("iesire") || "16:00") + "</td><td>" +
-        (params.get("principale") || "0") + "</td>";
-      tbody.appendChild(tr);
-    }
-  </script>
-</body>
+      if (savedDate) {
+        document.getElementById("raportTitle").textContent =
+          "Raport individual zilnic " + savedDate;
+        const tbody = document.querySelector("#raportForm\\:raportTable tbody");
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td>1</td><td>" +
+          (params.get("act") || "ROF 11.1.01") +
+          "</td><td>" +
+          (params.get("lucrare") || "7") +
+          "</td><td>" +
+          (params.get("intrare") || "08:00") +
+          "</td><td>" +
+          (params.get("iesire") || "16:00") +
+          "</td><td>" +
+          (params.get("principale") || "0") +
+          "</td>";
+        tbody.appendChild(tr);
+      }
+    </script>
+  </body>
 </html>
