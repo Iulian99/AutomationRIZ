@@ -106,11 +106,11 @@ type SpeedKey = "rapid" | "normal" | "lent";
 
 const SPEEDS: Record<
   SpeedKey,
-  { label: string; field: number; click: number; nav: number }
+  { label: string; field: number; click: number; nav: number; char: number }
 > = {
-  rapid: { label: "Rapid", field: 350, click: 450, nav: 400 },
-  normal: { label: "Normal", field: 800, click: 900, nav: 800 },
-  lent: { label: "Lent", field: 1600, click: 1600, nav: 1400 },
+  rapid: { label: "Rapid", field: 350, click: 450, nav: 400, char: 25 },
+  normal: { label: "Normal", field: 800, click: 900, nav: 800, char: 55 },
+  lent: { label: "Lent", field: 1600, click: 1600, nav: 1400, char: 110 },
 };
 
 type LogStatus = "ok" | "error" | "warn" | "info";
@@ -219,6 +219,51 @@ function maskValue(f: FieldConfig): string {
   return "•".repeat(Math.min(f.value.length, 10));
 }
 
+function dispatchKeyEvent(doc: Document, el: Element, type: string, ch: string) {
+  // folosim KeyboardEvent din realm-ul iframe-ului, ca să nu avem probleme cross-realm
+  const win = doc.defaultView;
+  try {
+    const K = (win?.KeyboardEvent ?? KeyboardEvent) as typeof KeyboardEvent;
+    el.dispatchEvent(
+      new K(type, {
+        key: ch,
+        code: ch.length === 1 ? `Key${ch.toUpperCase()}` : ch,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  } catch {
+    el.dispatchEvent(new Event(type, { bubbles: true }));
+  }
+}
+
+// tastează textul caracter cu caracter (keydown → valoare → input → keyup),
+// exact cum ar face sendKeys din Selenium cu delay între taste
+async function typeText(
+  doc: Document,
+  el: Element,
+  text: string,
+  charDelay: number,
+): Promise<void> {
+  const htmlEl = el as HTMLElement;
+  try {
+    htmlEl.focus();
+  } catch {
+    // ignorăm
+  }
+  let acc = "";
+  for (const ch of text) {
+    if (typeof ch !== "string" || ch.length === 0) continue;
+    acc += ch;
+    dispatchKeyEvent(doc, el, "keydown", ch);
+    nativeSetter(el, acc);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    dispatchKeyEvent(doc, el, "keyup", ch);
+    await sleep(charDelay);
+  }
+  el.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
 const DEFAULT_CLICK_SELECTOR = "#loginForm\\:idlogin";
 
 export default function Home() {
@@ -230,6 +275,7 @@ export default function Home() {
   const [clickEnabled, setClickEnabled] = useState(true);
   const [clickSelector, setClickSelector] = useState(DEFAULT_CLICK_SELECTOR);
   const [speed, setSpeed] = useState<SpeedKey>("normal");
+  const [typingSimulation, setTypingSimulation] = useState(true);
   const [autoRun, setAutoRun] = useState(false);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [running, setRunning] = useState(false);
@@ -269,6 +315,8 @@ export default function Home() {
       }
       const savedAutoRun = localStorage.getItem("fa-autorun");
       if (savedAutoRun !== null) setAutoRun(savedAutoRun === "1");
+      const savedTyping = localStorage.getItem("fa-typing");
+      if (savedTyping !== null) setTypingSimulation(savedTyping === "1");
     } catch {
       // ignorăm erorile de storage
     }
@@ -323,6 +371,14 @@ export default function Home() {
       // ignorăm
     }
   }, [autoRun]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("fa-typing", typingSimulation ? "1" : "0");
+    } catch {
+      // ignorăm
+    }
+  }, [typingSimulation]);
 
   const fillOne = useCallback((doc: Document, f: FieldConfig): FillResult => {
     let els: Element[] = [];
@@ -512,15 +568,39 @@ export default function Home() {
         continue;
       }
       const unhighlight = highlightElement(doc, el, "field");
-      addLog(`Completare „${f.label}” = ${maskValue(f)} ...`, "info");
-      await sleep(sp.field);
-      const res = fillOne(doc, f);
-      setResults((prev) => prev.map((r) => (r.id === f.id ? res : r)));
-      if (res.status === "filled") {
-        showFlag(doc, el, `${f.label} = ${maskValue(f)}`);
-        addLog(`„${f.label}” completat cu succes.`, "ok");
+      const isTypedField =
+        (f.type === "text" || f.type === "password") && f.value.length > 0;
+      if (isTypedField && typingSimulation) {
+        addLog(
+          `Se tastează „${f.label}” (${f.value.length} caractere) ...`,
+          "info",
+        );
+        try {
+          await typeText(doc, el, f.value, sp.char);
+          const res: FillResult = { ...f, status: "filled" };
+          setResults((prev) => prev.map((r) => (r.id === f.id ? res : r)));
+          showFlag(doc, el, `${f.label} = ${maskValue(f)}`);
+          addLog(`„${f.label}” tastat caracter cu caracter.`, "ok");
+        } catch (err) {
+          const res: FillResult = {
+            ...f,
+            status: "error",
+            message: err instanceof Error ? err.message : String(err),
+          };
+          setResults((prev) => prev.map((r) => (r.id === f.id ? res : r)));
+          addLog(`„${f.label}” — eroare la tastare.`, "error");
+        }
       } else {
-        addLog(`„${f.label}” — ${res.message ?? "eroare"}`, "error");
+        addLog(`Completare „${f.label}” = ${maskValue(f)} ...`, "info");
+        await sleep(sp.field);
+        const res = fillOne(doc, f);
+        setResults((prev) => prev.map((r) => (r.id === f.id ? res : r)));
+        if (res.status === "filled") {
+          showFlag(doc, el, `${f.label} = ${maskValue(f)}`);
+          addLog(`„${f.label}” completat cu succes.`, "ok");
+        } else {
+          addLog(`„${f.label}” — ${res.message ?? "eroare"}`, "error");
+        }
       }
       unhighlight();
       await sleep(Math.round(sp.field / 2));
@@ -559,6 +639,7 @@ export default function Home() {
     targetUrl,
     fields,
     speed,
+    typingSimulation,
     clickEnabled,
     clickSelector,
     fillOne,
@@ -787,6 +868,16 @@ export default function Home() {
                 ))}
               </select>
             </div>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={typingSimulation}
+                onChange={(e) => setTypingSimulation(e.target.checked)}
+                className="h-4 w-4"
+              />
+              Simulează tastarea (caracter cu caracter)
+            </label>
 
             <label className="flex items-center gap-2 text-sm">
               <input
