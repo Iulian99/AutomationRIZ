@@ -219,7 +219,12 @@ function maskValue(f: FieldConfig): string {
   return "•".repeat(Math.min(f.value.length, 10));
 }
 
-function dispatchKeyEvent(doc: Document, el: Element, type: string, ch: string) {
+function dispatchKeyEvent(
+  doc: Document,
+  el: Element,
+  type: string,
+  ch: string,
+) {
   // folosim KeyboardEvent din realm-ul iframe-ului, ca să nu avem probleme cross-realm
   const win = doc.defaultView;
   try {
@@ -264,6 +269,91 @@ async function typeText(
   el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+type PrimeFacesWindow = Window & {
+  PrimeFaces?: { ajaxQueue?: { isEmpty?: () => boolean } };
+};
+
+// așteaptă evenimentul load al iframe-ului, cu timeout (navigare după submit/redirect)
+function waitForIframeLoad(
+  iframe: HTMLIFrameElement,
+  timeoutMs: number,
+): Promise<void> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      iframe.removeEventListener("load", onLoad);
+      resolve();
+    };
+    const onLoad = () => finish();
+    iframe.addEventListener("load", onLoad);
+    setTimeout(finish, timeoutMs);
+  });
+}
+
+// așteaptă terminarea cererilor AJAX PrimeFaces (coada de request-uri goală)
+function waitForAjax(doc: Document, timeoutMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    let hasApi = false;
+    try {
+      const w = doc.defaultView as PrimeFacesWindow | null;
+      hasApi = typeof w?.PrimeFaces?.ajaxQueue?.isEmpty === "function";
+    } catch {
+      hasApi = false;
+    }
+    if (!hasApi) {
+      setTimeout(resolve, Math.min(timeoutMs, 1200));
+      return;
+    }
+    const t0 = Date.now();
+    const check = () => {
+      let empty = true;
+      try {
+        const w = doc.defaultView as PrimeFacesWindow | null;
+        empty = w?.PrimeFaces?.ajaxQueue?.isEmpty?.() ?? true;
+      } catch {
+        empty = true;
+      }
+      if (empty || Date.now() - t0 > timeoutMs) {
+        resolve();
+        return;
+      }
+      setTimeout(check, 100);
+    };
+    check();
+  });
+}
+
+// generează toate zilele unei luni (opțional doar zilele lucrătoare L–V), format dd.MM.yyyy
+function generateMonthDates(
+  monthInput: string,
+  skipWeekends: boolean,
+): string[] {
+  const m = /^(\d{4})-(\d{2})$/.exec(monthInput);
+  if (!m) return [];
+  const year = Number(m[1]);
+  const monthIdx = Number(m[2]) - 1;
+  const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+  const out: string[] = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dow = new Date(year, monthIdx, d).getDay();
+    if (skipWeekends && (dow === 0 || dow === 6)) continue;
+    const dd = String(d).padStart(2, "0");
+    const mm = String(monthIdx + 1).padStart(2, "0");
+    out.push(`${dd}.${mm}.${year}`);
+  }
+  return out;
+}
+
+// parsează lista de zile din text (una pe rând, dd.MM.yyyy)
+function parseDates(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => /^\d{2}\.\d{2}\.\d{4}$/.test(l));
+}
+
 const DEFAULT_CLICK_SELECTOR = "#loginForm\\:idlogin";
 
 export default function Home() {
@@ -282,6 +372,23 @@ export default function Home() {
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
+  const [postStepsEnabled, setPostStepsEnabled] = useState(true);
+  const [dateSelector, setDateSelector] = useState(
+    "#j_idt10\\:j_idt13\\:dataAleasa_input",
+  );
+  const [setParamsSelector, setSetParamsSelector] = useState(
+    "#j_idt10\\:j_idt13\\:j_idt27",
+  );
+  const [reportSelector, setReportSelector] = useState(
+    "#j_idt10\\:j_idt13\\:raportItemsListButton-id",
+  );
+  const [extraSelector, setExtraSelector] = useState("");
+  const [datesText, setDatesText] = useState("");
+  const [monthInput, setMonthInput] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [skipWeekends, setSkipWeekends] = useState(true);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const nonceRef = useRef(0);
   const stopRef = useRef(false);
@@ -317,6 +424,20 @@ export default function Home() {
       if (savedAutoRun !== null) setAutoRun(savedAutoRun === "1");
       const savedTyping = localStorage.getItem("fa-typing");
       if (savedTyping !== null) setTypingSimulation(savedTyping === "1");
+      const savedPostSteps = localStorage.getItem("fa-poststeps");
+      if (savedPostSteps !== null) setPostStepsEnabled(savedPostSteps === "1");
+      const savedDateSel = localStorage.getItem("fa-date-selector");
+      if (savedDateSel !== null) setDateSelector(savedDateSel);
+      const savedSetParamsSel = localStorage.getItem("fa-setparams-selector");
+      if (savedSetParamsSel !== null) setSetParamsSelector(savedSetParamsSel);
+      const savedReportSel = localStorage.getItem("fa-report-selector");
+      if (savedReportSel !== null) setReportSelector(savedReportSel);
+      const savedExtraSel = localStorage.getItem("fa-extra-selector");
+      if (savedExtraSel !== null) setExtraSelector(savedExtraSel);
+      const savedDates = localStorage.getItem("fa-dates");
+      if (savedDates !== null) setDatesText(savedDates);
+      const savedSkipWk = localStorage.getItem("fa-skipweekends");
+      if (savedSkipWk !== null) setSkipWeekends(savedSkipWk === "1");
     } catch {
       // ignorăm erorile de storage
     }
@@ -379,6 +500,62 @@ export default function Home() {
       // ignorăm
     }
   }, [typingSimulation]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("fa-poststeps", postStepsEnabled ? "1" : "0");
+    } catch {
+      // ignorăm
+    }
+  }, [postStepsEnabled]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("fa-date-selector", dateSelector);
+    } catch {
+      // ignorăm
+    }
+  }, [dateSelector]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("fa-setparams-selector", setParamsSelector);
+    } catch {
+      // ignorăm
+    }
+  }, [setParamsSelector]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("fa-report-selector", reportSelector);
+    } catch {
+      // ignorăm
+    }
+  }, [reportSelector]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("fa-extra-selector", extraSelector);
+    } catch {
+      // ignorăm
+    }
+  }, [extraSelector]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("fa-dates", datesText);
+    } catch {
+      // ignorăm
+    }
+  }, [datesText]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("fa-skipweekends", skipWeekends ? "1" : "0");
+    } catch {
+      // ignorăm
+    }
+  }, [skipWeekends]);
 
   const fillOne = useCallback((doc: Document, f: FieldConfig): FillResult => {
     let els: Element[] = [];
@@ -531,6 +708,7 @@ export default function Home() {
       ]);
     };
     const sp = SPEEDS[speed];
+    const datesList = parseDates(datesText);
 
     addLog(
       `Pornire automatizare: ${fields.length} câmpuri, viteză „${sp.label}”`,
@@ -549,6 +727,9 @@ export default function Home() {
       return;
     }
     addLog("Pagina s-a încărcat.", "ok");
+
+    const iframe = iframeRef.current;
+    let curDoc: Document = doc;
 
     for (const f of fields) {
       if (stopRef.current) {
@@ -631,6 +812,134 @@ export default function Home() {
       addLog("Pasul de apăsare Login este dezactivat.", "info");
     }
 
+    // ---- Scenariu post-login: selectează data și apasă „Raport” pentru fiecare zi ----
+    if (
+      !stopRef.current &&
+      clickEnabled &&
+      postStepsEnabled &&
+      datesList.length > 0 &&
+      iframe
+    ) {
+      addLog(
+        `Scenariu post-login: ${datesList.length} zile de procesat.`,
+        "info",
+      );
+      addLog("Așteptare navigare după login (redirect)...", "info");
+      await waitForIframeLoad(iframe, 10000);
+      const afterLoginDoc = getIframeDoc(iframe) ?? curDoc;
+
+      if (queryFirst(afterLoginDoc, dateSelector.trim())) {
+        curDoc = afterLoginDoc;
+        addLog("Login reușit — pagina principală încărcată.", "ok");
+      } else if (queryFirst(afterLoginDoc, "#loginForm\\:username")) {
+        addLog(
+          "Login eșuat — formularul de login este încă prezent pe pagină.",
+          "error",
+        );
+      } else {
+        curDoc = afterLoginDoc;
+        addLog(
+          "Nu s-a detectat nici pagina principală, nici formularul de login; se continuă.",
+          "warn",
+        );
+      }
+
+      for (let di = 0; di < datesList.length; di++) {
+        if (stopRef.current) {
+          addLog("Automatizare oprită de utilizator.", "warn");
+          break;
+        }
+        const date = datesList[di];
+        addLog(`Ziua ${di + 1}/${datesList.length}: ${date}`, "info");
+
+        // 1. selectăm data în calendarul PrimeFaces
+        const dateEl = queryFirst(curDoc, dateSelector.trim());
+        if (!dateEl) {
+          addLog(`Câmpul Data (${dateSelector}) nu a fost găsit.`, "error");
+          await sleep(sp.field);
+          continue;
+        }
+        const unhDate = highlightElement(curDoc, dateEl, "field");
+        if (typingSimulation) {
+          await typeText(curDoc, dateEl, date, sp.char);
+        } else {
+          nativeSetter(dateEl, date);
+          dispatchEvents(dateEl);
+        }
+        await waitForAjax(curDoc, 8000);
+        showFlag(curDoc, dateEl, `Data = ${date}`);
+        addLog(`Data ${date} selectată.`, "ok");
+        unhDate();
+
+        // 2. „Setare parametrii”
+        if (setParamsSelector.trim()) {
+          const spBtn = queryFirst(curDoc, setParamsSelector.trim());
+          if (!spBtn) {
+            addLog(
+              `Butonul „Setare parametrii” (${setParamsSelector}) nu a fost găsit.`,
+              "error",
+            );
+          } else {
+            const unh = highlightElement(curDoc, spBtn, "click");
+            addLog("Apăsare „Setare parametrii” ...", "info");
+            await sleep(sp.click);
+            (spBtn as HTMLElement).click();
+            await waitForAjax(curDoc, 8000);
+            showFlag(curDoc, spBtn, "Setare parametrii ✓");
+            addLog("„Setare parametrii” apăsat.", "ok");
+            setTimeout(unh, 1500);
+          }
+        }
+
+        // 3. „Raport” (submit complet — posibilă navigare)
+        if (reportSelector.trim()) {
+          const rBtn = queryFirst(curDoc, reportSelector.trim());
+          if (!rBtn) {
+            addLog(`Butonul „Raport” (${reportSelector}) nu a fost găsit.`, "error");
+          } else {
+            const unh = highlightElement(curDoc, rBtn, "click");
+            addLog("Apăsare „Raport” ...", "info");
+            await sleep(sp.click);
+            (rBtn as HTMLElement).click();
+            showFlag(curDoc, rBtn, "Raport apăsat ✓");
+            addLog("„Raport” apăsat.", "ok");
+            setTimeout(unh, 1500);
+            await waitForIframeLoad(iframe, 4000);
+            const newDoc = getIframeDoc(iframe);
+            if (newDoc && newDoc !== curDoc) {
+              curDoc = newDoc;
+              addLog("Pagina a navigat după „Raport”; s-a reîncărcat.", "info");
+            }
+          }
+        }
+
+        // 4. buton suplimentar opțional (ex. confirmare dialog)
+        if (extraSelector.trim()) {
+          const exBtn = queryFirst(curDoc, extraSelector.trim());
+          if (!exBtn) {
+            addLog(`Butonul suplimentar (${extraSelector}) nu a fost găsit.`, "warn");
+          } else {
+            const unh = highlightElement(curDoc, exBtn, "click");
+            addLog(`Apăsare buton suplimentar (${extraSelector}) ...`, "info");
+            await sleep(sp.click);
+            (exBtn as HTMLElement).click();
+            addLog("Buton suplimentar apăsat.", "ok");
+            setTimeout(unh, 1500);
+            await waitForIframeLoad(iframe, 4000);
+            const nd = getIframeDoc(iframe);
+            if (nd && nd !== curDoc) curDoc = nd;
+          }
+        }
+
+        await sleep(sp.field);
+      }
+    } else if (!stopRef.current && postStepsEnabled && clickEnabled) {
+      addLog(
+        "Scenariul post-login e activ, dar lista de zile este goală — completează zilele sau generează luna.",
+        "warn",
+      );
+    }
+
     addLog("Automatizare finalizată.", "ok");
     setRunning(false);
     setLoading(false);
@@ -642,6 +951,12 @@ export default function Home() {
     typingSimulation,
     clickEnabled,
     clickSelector,
+    postStepsEnabled,
+    dateSelector,
+    setParamsSelector,
+    reportSelector,
+    extraSelector,
+    datesText,
     fillOne,
     loadIframe,
   ]);
@@ -706,6 +1021,10 @@ export default function Home() {
 
   const toggleReveal = (id: string) => {
     setRevealed((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const generateMonth = () => {
+    setDatesText(generateMonthDates(monthInput, skipWeekends).join("\n"));
   };
 
   const filledCount = results.filter((r) => r.status === "filled").length;
@@ -878,6 +1197,84 @@ export default function Home() {
               />
               Simulează tastarea (caracter cu caracter)
             </label>
+
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={postStepsEnabled}
+                  onChange={(e) => setPostStepsEnabled(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                Continuă după login: selectează data și apasă „Raport”
+              </label>
+              {postStepsEnabled && (
+                <div className="mt-2 flex flex-col gap-2">
+                  <input
+                    type="text"
+                    value={dateSelector}
+                    onChange={(e) => setDateSelector(e.target.value)}
+                    placeholder="Câmp Data (ex. #j_idt10\\:j_idt13\\:dataAleasa_input)"
+                    className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 font-mono text-xs outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+                  <input
+                    type="text"
+                    value={setParamsSelector}
+                    onChange={(e) => setSetParamsSelector(e.target.value)}
+                    placeholder="Buton „Setare parametrii” (ex. #j_idt10\\:j_idt13\\:j_idt27)"
+                    className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 font-mono text-xs outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+                  <input
+                    type="text"
+                    value={reportSelector}
+                    onChange={(e) => setReportSelector(e.target.value)}
+                    placeholder="Buton „Raport” (ex. #j_idt10\\:j_idt13\\:raportItemsListButton-id)"
+                    className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 font-mono text-xs outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+                  <input
+                    type="text"
+                    value={extraSelector}
+                    onChange={(e) => setExtraSelector(e.target.value)}
+                    placeholder="Buton suplimentar după Raport (opțional)"
+                    className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 font-mono text-xs outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="month"
+                      value={monthInput}
+                      onChange={(e) => setMonthInput(e.target.value)}
+                      className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
+                    />
+                    <button
+                      onClick={generateMonth}
+                      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-semibold transition hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                    >
+                      Generează zilele lunii
+                    </button>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={skipWeekends}
+                      onChange={(e) => setSkipWeekends(e.target.checked)}
+                      className="h-3.5 w-3.5"
+                    />
+                    Doar zile lucrătoare (L–V)
+                  </label>
+                  <textarea
+                    value={datesText}
+                    onChange={(e) => setDatesText(e.target.value)}
+                    rows={4}
+                    placeholder={"Zile de procesat, una pe rând (dd.MM.yyyy):\n31.08.2026\n01.09.2026"}
+                    className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 font-mono text-xs outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {parseDates(datesText).length} zile în listă
+                  </p>
+                </div>
+              )}
+            </div>
 
             <label className="flex items-center gap-2 text-sm">
               <input

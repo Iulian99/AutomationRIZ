@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Raport INDEX (demo local)</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .panel {
+      width: 620px;
+      margin: 0 auto;
+      background: #fff;
+      border: 1px solid #c9d8e5;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .panel-title {
+      background: #4a6fa5;
+      color: #fff;
+      font-weight: bold;
+      padding: 10px 16px;
+    }
+    .panel-content {
+      padding: 20px;
+    }
+    table td {
+      padding: 6px 8px;
+    }
+    .label {
+      font-weight: bold;
+      color: #333;
+    }
+    input[type="text"] {
+      padding: 6px 8px;
+      border: 1px solid #8fb0cc;
+      border-radius: 4px;
+      width: 180px;
+    }
+    .btn {
+      background: #4a6fa5;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 8px 14px;
+      font-size: 0.9em;
+      cursor: pointer;
+      margin-right: 8px;
+    }
+    #log {
+      margin-top: 16px;
+      padding: 10px;
+      background: #f6f9fc;
+      border-radius: 4px;
+      font-size: 0.85em;
+      white-space: pre-wrap;
+    }
+    .status {
+      color: #166534;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div class="panel-title">Raport Individual zilnic (demo local — pagina principală)</div>
+    <div class="panel-content">
+      <p><b>Autentificat ca:</b> utilizator_test</p>
+      <table>
+        <tbody>
+          <tr>
+            <td><span class="label">Data: </span></td>
+            <td><input id="j_idt10:j_idt13:dataAleasa_input" type="text" placeholder="dd.MM.yyyy" value="31.08.2026"></td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        <button id="j_idt10:j_idt13:j_idt27" type="button" class="btn">Setare parametrii</button>
+        <button id="j_idt10:j_idt13:raportItemsListButton-id" type="button" class="btn">Raport</button>
+      </p>
+      <div id="log" class="status">Aștept acțiuni...</div>
+    </div>
+  </div>
+
+  <script>
+    const dateInput = document.getElementById("j_idt10:j_idt13:dataAleasa_input");
+    const logEl = document.getElementById("log");
+
+    function nowTime() {
+      return new Date().toLocaleTimeString("ro-RO");
+    }
+
+    dateInput.addEventListener("change", function () {
+      logEl.textContent = `[${nowTime()}] Data schimbată în ${dateInput.value} (AJAX valueChange simulat)`;
+    });
+
+    document.getElementById("j_idt10:j_idt13:j_idt27").addEventListener("click", function () {
+      logEl.textContent = `[${nowTime()}] Parametri setați pentru data ${dateInput.value} ✓`;
+    });
+
+    document.getElementById("j_idt10:j_idt13:raportItemsListButton-id").addEventListener("click", function () {
+      logEl.textContent += `\n[${nowTime()}] RAPORT generat pentru data ${dateInput.value} ✓`;
+    });
+  </script>
+</body>
+</html>

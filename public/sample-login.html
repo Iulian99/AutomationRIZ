@@ -177,6 +177,10 @@
           text += key + " = " + (value === "" ? "(gol)" : value) + "\n";
         }
         result.textContent = text;
+        // simulăm redirectul post-login către pagina principală
+        setTimeout(function () {
+          window.location.href = "/sample-index.html";
+        }, 800);
       });
     </script>
   </body>

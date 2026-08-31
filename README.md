@@ -9,6 +9,15 @@ Instrument local care încarcă o pagină (ex. un formular de login JSF/PrimeFac
 3. Apasă „Încarcă pagina și completează”. Pagina este încărcată prin `/api/proxy?url=...` (same-origin), deci câmpurile pot fi completate din JavaScript chiar dacă pagina țintă este pe alt server.
 4. Panoul „Câmpuri completate” arată ce s-a completat, ce nu s-a găsit și eventualele erori.
 
+## Scenariu post-login (date + Raport)
+
+Opțional, după login automatizarea poate continua pe pagina principală: pentru fiecare zi din listă selectează data în calendarul PrimeFaces, apasă „Setare parametrii”, apoi „Raport”. Zilele se introduc în listă (una pe rând, `dd.MM.yyyy`) sau se generează automat toată luna (opțional doar zile lucrătoare L–V). Selectorii implicit se potrivesc aplicației `RaportIndividualZilnicWebAppV4`:
+
+- câmp Data: `#j_idt10\:j_idt13\:dataAleasa_input`
+- „Setare parametrii”: `#j_idt10\:j_idt13\:j_idt27`
+- „Raport”: `#j_idt10\:j_idt13\:raportItemsListButton-id`
+- buton suplimentar după „Raport” (opțional, ex. confirmare dialog)
+
 ## Testare locală
 
 O pagină demo care imită formularul de login (aceleași id-uri) este servită la:
