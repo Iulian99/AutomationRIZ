@@ -15,42 +15,48 @@ const HOP_BY_HOP = new Set([
 
 const REDIRECT_CODES = new Set([301, 302, 303, 307, 308]);
 
-function proxify(value: string, targetUrl: string): string {
+function proxify(value: string, targetUrl: string, selfOrigin: string): string {
   const v = (value || "").trim();
   if (!v || v.startsWith("#") || v.startsWith("javascript:")) return v;
-  if (v.startsWith("/api/proxy")) return v;
+  // deja proxiat (relativ sau absolut)
+  if (v.startsWith("/api/proxy") || v.startsWith(selfOrigin)) return v;
   try {
-    return `/api/proxy?url=${encodeURIComponent(new URL(v, targetUrl).href)}`;
+    return `${selfOrigin}/api/proxy?url=${encodeURIComponent(new URL(v, targetUrl).href)}`;
   } catch {
     return v;
   }
 }
 
-function rewriteHtml(html: string, targetUrl: string): string {
+function rewriteHtml(
+  html: string,
+  targetUrl: string,
+  selfOrigin: string,
+): string {
   let out = html;
   // scoatem <base> existent, ca să nu intre în conflict cu al nostru
   out = out.replace(/<base\b[^>]*\/?>/gi, "");
   // injectăm <base href="origin/"> ca toate resursele (css/js/imagini) să se încarce direct de la țintă
   const origin = new URL(targetUrl).origin;
   out = out.replace(/(<head\b[^>]*>)/i, `$1<base href="${origin}/">`);
-  // rescriem acțiunile formularelor prin proxy (rămân same-origin, deci AJAX-ul PrimeFaces funcționează)
+  // rescriem acțiunile formularelor cu URL ABSOLUT al proxy-ului — altfel <base> le-ar
+  // rezolva pe domeniul țintă și AJAX-ul PrimeFaces ar fi blocat de CORS (HTTP 0)
   out = out.replace(
     /(?<![\w-])(action\s*=\s*)(["'])([^"']*)\2/gi,
-    (_m, pre, q, val) => `${pre}${q}${proxify(val, targetUrl)}${q}`,
+    (_m, pre, q, val) => `${pre}${q}${proxify(val, targetUrl, selfOrigin)}${q}`,
   );
   // rescriem linkurile <a href> absolute/relative, ca navigarea să rămână în proxy
   out = out.replace(
     /(<a\b[^>]*?\bhref\s*=\s*)(["'])([^"']*)\2/gi,
-    (_m, pre, q, val) => `${pre}${q}${proxify(val, targetUrl)}${q}`,
+    (_m, pre, q, val) => `${pre}${q}${proxify(val, targetUrl, selfOrigin)}${q}`,
   );
   return out;
 }
 
-function rewriteXml(xml: string, targetUrl: string): string {
+function rewriteXml(xml: string, targetUrl: string, selfOrigin: string): string {
   // PrimeFaces răspunde la AJAX cu <partial-response> care poate conține <redirect url="..."/>
   return xml.replace(
     /(?<![\w-])(url\s*=\s*)(["'])([^"']*)\2/gi,
-    (_m, pre, q, val) => `${pre}${q}${proxify(val, targetUrl)}${q}`,
+    (_m, pre, q, val) => `${pre}${q}${proxify(val, targetUrl, selfOrigin)}${q}`,
   );
 }
 
@@ -81,6 +87,7 @@ function getSetCookies(res: Response): string[] {
 async function proxy(request: NextRequest): Promise<Response> {
   const url = new URL(request.url);
   const target = url.searchParams.get("url");
+  const selfOrigin = url.origin;
 
   if (!target) {
     return new Response("Lipsește parametrul ?url=", { status: 400 });
@@ -140,7 +147,10 @@ async function proxy(request: NextRequest): Promise<Response> {
       // păstrăm valoarea brută
     }
     const out = new Response(null, { status: res.status });
-    out.headers.set("location", `/api/proxy?url=${encodeURIComponent(next)}`);
+    out.headers.set(
+      "location",
+      `${selfOrigin}/api/proxy?url=${encodeURIComponent(next)}`,
+    );
     for (const sc of getSetCookies(res))
       out.headers.append("set-cookie", fixSetCookie(sc));
     return out;
@@ -168,7 +178,7 @@ async function proxy(request: NextRequest): Promise<Response> {
   if (contentType.includes("text/html")) {
     const html = new TextDecoder("utf-8").decode(buf);
     outHeaders.set("content-type", "text/html; charset=utf-8");
-    return new Response(rewriteHtml(html, targetUrl.href), {
+    return new Response(rewriteHtml(html, targetUrl.href, selfOrigin), {
       status: res.status,
       headers: outHeaders,
     });
@@ -176,7 +186,7 @@ async function proxy(request: NextRequest): Promise<Response> {
 
   if (contentType.includes("xml")) {
     const xml = new TextDecoder("utf-8").decode(buf);
-    return new Response(rewriteXml(xml, targetUrl.href), {
+    return new Response(rewriteXml(xml, targetUrl.href, selfOrigin), {
       status: res.status,
       headers: outHeaders,
     });
