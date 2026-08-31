@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Raport LOGIN (demo local)</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: #f0f4f8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+      .panel {
+        width: 500px;
+        background: #a7c7dc;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+      }
+      .panel-title {
+        background: #4a6fa5;
+        color: #fff;
+        font-weight: bold;
+        padding: 12px 16px;
+        font-size: 1.1em;
+      }
+      .panel-content {
+        padding: 24px;
+      }
+      table {
+        margin: 0 auto;
+      }
+      td {
+        padding: 6px 8px;
+      }
+      .label {
+        color: #0000cc;
+        font-weight: bold;
+        font-size: 1.1em;
+      }
+      input[type="text"],
+      input[type="password"],
+      select {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #8fb0cc;
+        border-radius: 4px;
+        font-size: 0.95em;
+      }
+      .btn-login {
+        background: #4a6fa5;
+        color: #fff;
+        font-weight: bold;
+        border: none;
+        border-radius: 4px;
+        padding: 8px 16px;
+        font-size: 1em;
+        cursor: pointer;
+      }
+      .link {
+        color: #cc5500;
+        font-weight: bold;
+        text-decoration: none;
+      }
+      .footer {
+        background: #e3edf5;
+        padding: 8px 16px;
+        font-size: 0.8em;
+        color: #555;
+      }
+      .result {
+        margin-top: 12px;
+        padding: 10px;
+        background: #fff;
+        border-radius: 4px;
+        font-size: 0.9em;
+        display: none;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <form id="loginForm" name="loginForm" method="post" action="/submit-demo">
+      <div class="panel">
+        <div class="panel-title">Raport Individual zilnic (demo local)</div>
+        <div class="panel-content">
+          <table>
+            <tbody>
+              <tr>
+                <td><span class="label">Username</span></td>
+                <td>
+                  <input
+                    id="loginForm:username"
+                    name="loginForm:username"
+                    type="text"
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td><span class="label">Password</span></td>
+                <td>
+                  <input
+                    id="loginForm:password"
+                    name="loginForm:password"
+                    type="password"
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td><span class="label">Limbă</span></td>
+                <td>
+                  <select id="loginForm:limba" name="loginForm:limba">
+                    <option value="">— alege —</option>
+                    <option value="ro">Română</option>
+                    <option value="en">English</option>
+                  </select>
+                </td>
+              </tr>
+              <tr>
+                <td><span class="label">Ține-mă minte</span></td>
+                <td>
+                  <input
+                    id="loginForm:tineMinte"
+                    name="loginForm:tineMinte"
+                    type="checkbox"
+                    value="true"
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td><span class="label">Rol</span></td>
+                <td>
+                  <label
+                    ><input type="radio" name="loginForm:rol" value="angajat" />
+                    Angajat</label
+                  >
+                  <label style="margin-left: 12px"
+                    ><input type="radio" name="loginForm:rol" value="admin" />
+                    Admin</label
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td></td>
+                <td>
+                  <button
+                    id="loginForm:idlogin"
+                    name="loginForm:idlogin"
+                    type="submit"
+                    class="btn-login"
+                  >
+                    Login
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div id="result" class="result"></div>
+        </div>
+        <div class="footer">WebApp demo — pentru testarea autocompletării</div>
+      </div>
+    </form>
+
+    <script>
+      const form = document.getElementById("loginForm");
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        const data = new FormData(form);
+        const result = document.getElementById("result");
+        result.style.display = "block";
+        let text = "Valori trimise (demo, fără backend):\n";
+        for (const [key, value] of data.entries()) {
+          text += key + " = " + (value === "" ? "(gol)" : value) + "\n";
+        }
+        result.textContent = text;
+      });
+    </script>
+  </body>
+</html>

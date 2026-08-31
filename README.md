@@ -1,3 +1,26 @@
+# Form Autocomplete
+
+Instrument local care încarcă o pagină (ex. un formular de login JSF/PrimeFaces) într-un iframe prin intermediul unui proxy same-origin și completează automat câmpurile configurate. Fiecare câmp este introdus separat (etichetă + selector CSS + valoare), iar rezultatul completării este afișat în interfață.
+
+## Cum funcționează
+
+1. Introdu URL-ul paginii țintă (ex. `http://localhost:8080/RaportIndividualZilnicWebAppV4/login.xhtml`).
+2. Configurează câmpurile: etichetă, selector CSS (ex. `#loginForm\:username`) și valoare.
+3. Apasă „Încarcă pagina și completează”. Pagina este încărcată prin `/api/proxy?url=...` (same-origin), deci câmpurile pot fi completate din JavaScript chiar dacă pagina țintă este pe alt server.
+4. Panoul „Câmpuri completate” arată ce s-a completat, ce nu s-a găsit și eventualele erori.
+
+## Testare locală
+
+O pagină demo care imită formularul de login (aceleași id-uri) este servită la:
+
+```
+http://localhost:3000/sample-login.html
+```
+
+Folosește acest URL ca pagină țintă pentru a testa fluxul fără un server extern.
+
+## Pornire
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
