@@ -354,6 +354,95 @@ function parseDates(text: string): string[] {
     .filter((l) => /^\d{2}\.\d{2}\.\d{4}$/.test(l));
 }
 
+type SpyWindow = PrimeFacesWindow & {
+  XMLHttpRequest: typeof XMLHttpRequest;
+  __faSpy?: { status?: number; text?: string };
+};
+
+// injectează un spion pe XMLHttpRequest în iframe, ca să vedem răspunsul AJAX de login
+function injectAjaxSpy(doc: Document): void {
+  try {
+    const win = doc.defaultView as SpyWindow | null;
+    if (!win || win.__faSpy) return;
+    const spy: { status?: number; text?: string } = {};
+    win.__faSpy = spy;
+    const OrigXHR = win.XMLHttpRequest;
+    if (!OrigXHR) return;
+    const proto = OrigXHR.prototype as unknown as {
+      send: (...args: unknown[]) => void;
+    };
+    const origSend = proto.send;
+    proto.send = function (this: unknown, ...args: unknown[]) {
+      const xhr = this as {
+        addEventListener: (t: string, h: () => void) => void;
+        readyState: number;
+        status: number;
+        responseText?: string;
+      };
+      xhr.addEventListener("readystatechange", () => {
+        if (xhr.readyState === 4) {
+          spy.status = xhr.status;
+          try {
+            spy.text = String(xhr.responseText ?? "").slice(0, 600);
+          } catch {
+            spy.text = "";
+          }
+        }
+      });
+      return Reflect.apply(origSend, this, args);
+    };
+  } catch {
+    // ignorăm
+  }
+}
+
+// citește mesajele growl/message afișate de PrimeFaces (ex. „Username sau parola incorectă")
+function readGrowlText(doc: Document): string {
+  try {
+    const nodes = doc.querySelectorAll(
+      ".ui-growl-item-summary, .ui-growl-item-detail, .ui-messages .ui-messages-error, .ui-messages .ui-messages-info, .ui-message-error, .ui-message-info",
+    );
+    const parts: string[] = [];
+    nodes.forEach((n) => {
+      const t = (n.textContent ?? "").trim();
+      if (t) parts.push(t);
+    });
+    return parts.join(" | ").slice(0, 300);
+  } catch {
+    return "";
+  }
+}
+
+// numele cookie-urilor din sesiunea iframe-ului (JSESSIONID etc.)
+function readCookies(doc: Document): string {
+  try {
+    return doc.cookie
+      .split(";")
+      .map((c) => c.trim().split("=")[0])
+      .filter(Boolean)
+      .join(", ");
+  } catch {
+    return "";
+  }
+}
+
+// așteaptă rezultatul loginului: navigare (document nou) sau mesaj de eroare growl
+async function waitForLoginResult(
+  iframe: HTMLIFrameElement,
+  initialDoc: Document,
+  timeoutMs: number,
+): Promise<Document | null> {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    const d = getIframeDoc(iframe);
+    if (!d) return null;
+    if (d !== initialDoc) return d; // pagina a navigat
+    if (readGrowlText(d)) return null; // a apărut un mesaj de eroare, fără navigare
+    await sleep(400);
+  }
+  return null;
+}
+
 const DEFAULT_CLICK_SELECTOR = "#loginForm\\:idlogin";
 
 export default function Home() {
@@ -795,6 +884,7 @@ export default function Home() {
         const unhighlight = highlightElement(doc, btn, "click");
         addLog(`Apăsare buton Login (${clickSelector}) ...`, "info");
         await sleep(sp.click);
+        injectAjaxSpy(doc);
         try {
           (btn as HTMLElement).click();
           showFlag(doc, btn, "Login apăsat ✓");
@@ -806,7 +896,29 @@ export default function Home() {
           );
         }
         setTimeout(unhighlight, 1500);
-        await sleep(600);
+        await sleep(2000);
+
+        // diagnostic: ce a răspuns serverul la AJAX-ul de login
+        const spyW = doc.defaultView as SpyWindow | null;
+        const spy = spyW?.__faSpy;
+        if (spy && spy.status !== undefined) {
+          const snippet = (spy.text ?? "").replace(/\s+/g, " ").trim();
+          addLog(
+            `Răspuns AJAX login: HTTP ${spy.status} — ${snippet ? snippet.slice(0, 180) : "(fără conținut)"}`,
+            spy.status === 200 ? "info" : "error",
+          );
+        } else {
+          addLog("Nicio cerere AJAX detectată după click-ul pe Login.", "warn");
+        }
+        const growl = readGrowlText(doc);
+        if (growl) {
+          addLog(`Mesaj server: ${growl}`, "warn");
+        }
+        const cookies = readCookies(doc);
+        addLog(
+          `Cookie-uri sesiune: ${cookies || "(niciunul)"}`,
+          /jsessionid/i.test(cookies) ? "info" : "warn",
+        );
       }
     } else if (!stopRef.current) {
       addLog("Pasul de apăsare Login este dezactivat.", "info");
@@ -825,26 +937,25 @@ export default function Home() {
         "info",
       );
       addLog("Așteptare navigare după login (redirect)...", "info");
-      await waitForIframeLoad(iframe, 10000);
-      const afterLoginDoc = getIframeDoc(iframe) ?? curDoc;
-
-      if (queryFirst(afterLoginDoc, dateSelector.trim())) {
+      const afterLoginDoc = await waitForLoginResult(iframe, curDoc, 10000);
+      if (afterLoginDoc) {
         curDoc = afterLoginDoc;
+      }
+      if (queryFirst(curDoc, dateSelector.trim())) {
         addLog("Login reușit — pagina principală încărcată.", "ok");
-      } else if (queryFirst(afterLoginDoc, "#loginForm\\:username")) {
-        addLog(
-          "Login eșuat — formularul de login este încă prezent pe pagină.",
-          "error",
-        );
       } else {
-        curDoc = afterLoginDoc;
         addLog(
-          "Nu s-a detectat nici pagina principală, nici formularul de login; se continuă.",
-          "warn",
+          "Login eșuat — pagina principală nu a apărut. Vezi diagnosticul de mai sus (răspuns AJAX / mesaj server / cookie-uri).",
+          "error",
         );
       }
 
-      for (let di = 0; di < datesList.length; di++) {
+      const loggedIn = queryFirst(curDoc, dateSelector.trim()) !== null;
+      if (!loggedIn) {
+        addLog("Scenariul post-login a fost anulat (login nereușit).", "warn");
+      }
+
+      for (let di = 0; di < datesList.length && loggedIn; di++) {
         if (stopRef.current) {
           addLog("Automatizare oprită de utilizator.", "warn");
           break;
