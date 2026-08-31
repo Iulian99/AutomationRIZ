@@ -895,7 +895,10 @@ export default function Home() {
         if (reportSelector.trim()) {
           const rBtn = queryFirst(curDoc, reportSelector.trim());
           if (!rBtn) {
-            addLog(`Butonul „Raport” (${reportSelector}) nu a fost găsit.`, "error");
+            addLog(
+              `Butonul „Raport” (${reportSelector}) nu a fost găsit.`,
+              "error",
+            );
           } else {
             const unh = highlightElement(curDoc, rBtn, "click");
             addLog("Apăsare „Raport” ...", "info");
@@ -917,7 +920,10 @@ export default function Home() {
         if (extraSelector.trim()) {
           const exBtn = queryFirst(curDoc, extraSelector.trim());
           if (!exBtn) {
-            addLog(`Butonul suplimentar (${extraSelector}) nu a fost găsit.`, "warn");
+            addLog(
+              `Butonul suplimentar (${extraSelector}) nu a fost găsit.`,
+              "warn",
+            );
           } else {
             const unh = highlightElement(curDoc, exBtn, "click");
             addLog(`Apăsare buton suplimentar (${extraSelector}) ...`, "info");
@@ -1266,7 +1272,9 @@ export default function Home() {
                     value={datesText}
                     onChange={(e) => setDatesText(e.target.value)}
                     rows={4}
-                    placeholder={"Zile de procesat, una pe rând (dd.MM.yyyy):\n31.08.2026\n01.09.2026"}
+                    placeholder={
+                      "Zile de procesat, una pe rând (dd.MM.yyyy):\n31.08.2026\n01.09.2026"
+                    }
                     className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 font-mono text-xs outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
                   />
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
