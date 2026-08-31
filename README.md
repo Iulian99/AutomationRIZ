@@ -18,6 +18,15 @@ Opțional, după login automatizarea poate continua pe pagina principală: pentr
 - „Raport”: `#j_idt10\:j_idt13\:raportItemsListButton-id`
 - buton suplimentar după „Raport” (opțional, ex. confirmare dialog)
 
+## Creare raport (Insert + Save)
+
+Opțional, după „Raport” automatizarea apasă „Insert Raport Individual Zilnic”, pe pagina `createRaport.xhtml` completează câmpurile configurate (combo-uri nomenclator — se setează valoarea opțiunii în `*_input`, ore, minute, radio-uri, textarea-uri), apasă **Save**, apoi revine cu „I N D E X” pentru ziua următoare. Selectori implici:
+
+- Insert: `#raportForm\:j_idt96`
+- Save: `input[name="createForm\:j_idt121"]`
+- I N D E X: `#j_idt16`
+- câmpuri: `#createForm\:activitate_input` (ex. valoare `ROF 11.1.10`), `#createForm\:atributii_input` (ex. `7`), `#createForm\:lucrare_input` (ex. `7`), `#createForm\:intrare`/`#createForm\:iesire` (ore), minute, radio-urile `urgenta`/`utilizareIt`/`tipActivitate`, textarea-urile `act`/`denumireIt`/`observatii`
+
 ## Testare locală
 
 O pagină demo care imită formularul de login (aceleași id-uri) este servită la:

@@ -52,7 +52,11 @@ function rewriteHtml(
   return out;
 }
 
-function rewriteXml(xml: string, targetUrl: string, selfOrigin: string): string {
+function rewriteXml(
+  xml: string,
+  targetUrl: string,
+  selfOrigin: string,
+): string {
   // PrimeFaces răspunde la AJAX cu <partial-response> care poate conține <redirect url="..."/>
   return xml.replace(
     /(?<![\w-])(url\s*=\s*)(["'])([^"']*)\2/gi,

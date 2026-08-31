@@ -128,6 +128,12 @@
         .getElementById("j_idt10:j_idt13:raportItemsListButton-id")
         .addEventListener("click", function () {
           logEl.textContent += `\n[${nowTime()}] RAPORT generat pentru data ${dateInput.value} ✓`;
+          // simulăm submit-ul complet: navigăm la lista de rapoarte
+          setTimeout(function () {
+            window.location.href =
+              "/sample-raport-list.html?date=" +
+              encodeURIComponent(dateInput.value);
+          }, 600);
         });
     </script>
   </body>

@@ -444,6 +444,182 @@ async function waitForLoginResult(
 }
 
 const DEFAULT_CLICK_SELECTOR = "#loginForm\\:idlogin";
+const DEFAULT_INSERT_SELECTOR = "#raportForm\\:j_idt96";
+const DEFAULT_SAVE_SELECTOR = 'input[name="createForm\\:j_idt121"]';
+const DEFAULT_INDEX_SELECTOR = "#j_idt16";
+
+const DEFAULT_CREATE_FIELDS: FieldConfig[] = [
+  {
+    id: uid(),
+    label: "Activitate (ROF)",
+    selector: "#createForm\\:activitate_input",
+    value: "",
+    type: "select",
+  },
+  {
+    id: uid(),
+    label: "Atribuții",
+    selector: "#createForm\\:atributii_input",
+    value: "",
+    type: "select",
+  },
+  {
+    id: uid(),
+    label: "Lucrare",
+    selector: "#createForm\\:lucrare_input",
+    value: "",
+    type: "select",
+  },
+  {
+    id: uid(),
+    label: "Intrare (ora)",
+    selector: "#createForm\\:intrare",
+    value: "",
+    type: "text",
+  },
+  {
+    id: uid(),
+    label: "Ieșire (ora)",
+    selector: "#createForm\\:iesire",
+    value: "",
+    type: "text",
+  },
+  {
+    id: uid(),
+    label: "Minute principale",
+    selector: "#createForm\\:principale",
+    value: "0",
+    type: "text",
+  },
+  {
+    id: uid(),
+    label: "Minute conexe",
+    selector: "#createForm\\:conexe",
+    value: "0",
+    type: "text",
+  },
+  {
+    id: uid(),
+    label: "Minute neproductive",
+    selector: "#createForm\\:neproductive",
+    value: "0",
+    type: "text",
+  },
+  {
+    id: uid(),
+    label: "Urgență",
+    selector: 'input[name="createForm\\:urgenta"]',
+    value: "NU",
+    type: "radio",
+  },
+  {
+    id: uid(),
+    label: "Utilizare IT",
+    selector: 'input[name="createForm\\:utilizareIt"]',
+    value: "NU",
+    type: "radio",
+  },
+  {
+    id: uid(),
+    label: "Tip activitate",
+    selector: 'input[name="createForm\\:tipActivitate"]',
+    value: "INDIVIDUALA",
+    type: "radio",
+  },
+  {
+    id: uid(),
+    label: "Act",
+    selector: "#createForm\\:act",
+    value: "",
+    type: "text",
+  },
+  {
+    id: uid(),
+    label: "Denumire IT",
+    selector: "#createForm\\:denumireIt",
+    value: "",
+    type: "text",
+  },
+  {
+    id: uid(),
+    label: "Observații",
+    selector: "#createForm\\:observatii",
+    value: "",
+    type: "text",
+  },
+];
+
+function FieldsEditor(props: {
+  fields: FieldConfig[];
+  onChange: (id: string, patch: Partial<FieldConfig>) => void;
+  onRemove: (id: string) => void;
+}) {
+  const { fields, onChange, onRemove } = props;
+  return (
+    <div className="flex flex-col gap-3">
+      {fields.map((f) => (
+        <div
+          key={f.id}
+          className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950"
+        >
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <input
+              type="text"
+              value={f.label}
+              onChange={(e) => onChange(f.id, { label: e.target.value })}
+              placeholder="Etichetă (ex. Username)"
+              className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm font-medium outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
+            />
+            <button
+              onClick={() => onRemove(f.id)}
+              title="Șterge câmpul"
+              className="rounded-md px-2 py-1 text-sm text-red-600 transition hover:bg-red-50 dark:hover:bg-red-950"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex flex-col gap-2">
+            <input
+              type="text"
+              value={f.selector}
+              onChange={(e) => onChange(f.id, { selector: e.target.value })}
+              placeholder="Selector CSS (ex. #loginForm\\:username)"
+              className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 font-mono text-xs outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
+            />
+            <div className="flex gap-2">
+              <select
+                value={f.type}
+                onChange={(e) =>
+                  onChange(f.id, { type: e.target.value as FieldType })
+                }
+                className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
+              >
+                {(Object.keys(FIELD_TYPE_LABELS) as FieldType[]).map((t) => (
+                  <option key={t} value={t}>
+                    {FIELD_TYPE_LABELS[t]}
+                  </option>
+                ))}
+              </select>
+              <input
+                type={f.type === "password" ? "password" : "text"}
+                value={f.value}
+                onChange={(e) => onChange(f.id, { value: e.target.value })}
+                placeholder={
+                  f.type === "checkbox"
+                    ? "true / false"
+                    : f.type === "radio"
+                      ? "valoarea opțiunii"
+                      : "Valoare de completat"
+                }
+                className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 font-mono text-xs outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Home() {
   const [targetUrl, setTargetUrl] = useState("");
@@ -478,6 +654,13 @@ export default function Home() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
   const [skipWeekends, setSkipWeekends] = useState(true);
+  const [insertEnabled, setInsertEnabled] = useState(true);
+  const [insertSelector, setInsertSelector] = useState(DEFAULT_INSERT_SELECTOR);
+  const [saveSelector, setSaveSelector] = useState(DEFAULT_SAVE_SELECTOR);
+  const [indexSelector, setIndexSelector] = useState(DEFAULT_INDEX_SELECTOR);
+  const [fieldsCreate, setFieldsCreate] = useState<FieldConfig[]>(
+    DEFAULT_CREATE_FIELDS,
+  );
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const nonceRef = useRef(0);
   const stopRef = useRef(false);
@@ -527,6 +710,21 @@ export default function Home() {
       if (savedDates !== null) setDatesText(savedDates);
       const savedSkipWk = localStorage.getItem("fa-skipweekends");
       if (savedSkipWk !== null) setSkipWeekends(savedSkipWk === "1");
+      const savedInsert = localStorage.getItem("fa-insert");
+      if (savedInsert !== null) setInsertEnabled(savedInsert === "1");
+      const savedInsertSel = localStorage.getItem("fa-insert-selector");
+      if (savedInsertSel !== null) setInsertSelector(savedInsertSel);
+      const savedSaveSel = localStorage.getItem("fa-save-selector");
+      if (savedSaveSel !== null) setSaveSelector(savedSaveSel);
+      const savedIndexSel = localStorage.getItem("fa-index-selector");
+      if (savedIndexSel !== null) setIndexSelector(savedIndexSel);
+      const savedCreateFields = localStorage.getItem("fa-fields-create");
+      if (savedCreateFields) {
+        const parsed = JSON.parse(savedCreateFields);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setFieldsCreate(parsed as FieldConfig[]);
+        }
+      }
     } catch {
       // ignorăm erorile de storage
     }
@@ -645,6 +843,46 @@ export default function Home() {
       // ignorăm
     }
   }, [skipWeekends]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("fa-insert", insertEnabled ? "1" : "0");
+    } catch {
+      // ignorăm
+    }
+  }, [insertEnabled]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("fa-insert-selector", insertSelector);
+    } catch {
+      // ignorăm
+    }
+  }, [insertSelector]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("fa-save-selector", saveSelector);
+    } catch {
+      // ignorăm
+    }
+  }, [saveSelector]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("fa-index-selector", indexSelector);
+    } catch {
+      // ignorăm
+    }
+  }, [indexSelector]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("fa-fields-create", JSON.stringify(fieldsCreate));
+    } catch {
+      // ignorăm
+    }
+  }, [fieldsCreate]);
 
   const fillOne = useCallback((doc: Document, f: FieldConfig): FillResult => {
     let els: Element[] = [];
@@ -1048,6 +1286,128 @@ export default function Home() {
           }
         }
 
+        // 5. Insert Raport Individual Zilnic → pagina de creare → completare → Save
+        if (!stopRef.current && insertEnabled) {
+          const insBtn = queryFirst(curDoc, insertSelector.trim());
+          if (!insBtn) {
+            addLog(
+              `Butonul „Insert Raport Individual Zilnic” (${insertSelector}) nu a fost găsit.`,
+              "error",
+            );
+          } else {
+            const unhIns = highlightElement(curDoc, insBtn, "click");
+            addLog("Apăsare „Insert Raport Individual Zilnic” ...", "info");
+            await sleep(sp.click);
+            (insBtn as HTMLElement).click();
+            setTimeout(unhIns, 1500);
+            await waitForIframeLoad(iframe, 8000);
+            const createDoc = getIframeDoc(iframe);
+            if (createDoc && createDoc !== curDoc) curDoc = createDoc;
+
+            if (queryFirst(curDoc, "#createForm\\:activitate_input")) {
+              addLog("Pagina de creare raport încărcată.", "ok");
+
+              for (const cf of fieldsCreate) {
+                if (stopRef.current) break;
+                const cel = queryFirst(curDoc, cf.selector);
+                if (!cel) {
+                  addLog(
+                    `Câmp „${cf.label}” (${cf.selector}) nu a fost găsit.`,
+                    "warn",
+                  );
+                  await sleep(Math.round(sp.field / 2));
+                  continue;
+                }
+                const unhCf = highlightElement(curDoc, cel, "field");
+                addLog(
+                  `Completare „${cf.label}” = ${maskValue(cf)} ...`,
+                  "info",
+                );
+                await sleep(Math.round(sp.field / 2));
+                if (
+                  (cf.type === "text" || cf.type === "password") &&
+                  typingSimulation &&
+                  cf.value.length > 0
+                ) {
+                  await typeText(curDoc, cel, cf.value, sp.char);
+                } else {
+                  fillOne(curDoc, cf);
+                }
+                await waitForAjax(curDoc, 8000);
+                showFlag(curDoc, cel, `${cf.label} = ${maskValue(cf)}`);
+                addLog(`„${cf.label}” completat.`, "ok");
+                unhCf();
+              }
+
+              if (saveSelector.trim()) {
+                const svBtn = queryFirst(curDoc, saveSelector.trim());
+                if (!svBtn) {
+                  addLog(
+                    `Butonul Save (${saveSelector}) nu a fost găsit.`,
+                    "error",
+                  );
+                } else {
+                  const unhSv = highlightElement(curDoc, svBtn, "click");
+                  addLog("Apăsare Save ...", "info");
+                  await sleep(sp.click);
+                  (svBtn as HTMLElement).click();
+                  setTimeout(unhSv, 1500);
+                  await waitForIframeLoad(iframe, 8000);
+                  const afterSave = getIframeDoc(iframe);
+                  if (afterSave && afterSave !== curDoc) {
+                    curDoc = afterSave;
+                    const rows = curDoc.querySelectorAll(
+                      "#raportForm\\:raportTable tbody tr",
+                    ).length;
+                    addLog(
+                      `Save efectuat — lista s-a reîncărcat (${rows} rânduri în tabel).`,
+                      "ok",
+                    );
+                  } else {
+                    const g = readGrowlText(curDoc);
+                    addLog(
+                      g
+                        ? `Eroare la salvare: ${g}`
+                        : "Nu s-a detectat navigarea după Save.",
+                      "error",
+                    );
+                  }
+                }
+              }
+            } else {
+              const g = readGrowlText(curDoc);
+              addLog(
+                `Pagina de creare raport nu a apărut după Insert.${g ? ` Mesaj server: ${g}` : ""}`,
+                "error",
+              );
+            }
+          }
+        }
+
+        // 6. înapoi la I N D E X pentru ziua următoare
+        if (!stopRef.current) {
+          const idxBtn = queryFirst(curDoc, indexSelector.trim());
+          if (!idxBtn) {
+            addLog(
+              `Butonul „I N D E X” (${indexSelector}) nu a fost găsit.`,
+              "warn",
+            );
+          } else {
+            const unhI = highlightElement(curDoc, idxBtn, "click");
+            addLog(
+              "Apăsare „I N D E X” — revenire pentru ziua următoare ...",
+              "info",
+            );
+            await sleep(sp.click);
+            (idxBtn as HTMLElement).click();
+            setTimeout(unhI, 1500);
+            await waitForIframeLoad(iframe, 8000);
+            const idxDoc = getIframeDoc(iframe);
+            if (idxDoc && idxDoc !== curDoc) curDoc = idxDoc;
+            addLog("Înapoi pe pagina principală.", "info");
+          }
+        }
+
         await sleep(sp.field);
       }
     } else if (!stopRef.current && postStepsEnabled && clickEnabled) {
@@ -1073,6 +1433,11 @@ export default function Home() {
     setParamsSelector,
     reportSelector,
     extraSelector,
+    insertEnabled,
+    insertSelector,
+    saveSelector,
+    indexSelector,
+    fieldsCreate,
     datesText,
     fillOne,
     loadIframe,
@@ -1125,6 +1490,29 @@ export default function Home() {
 
   const addField = () => {
     setFields((prev) => [
+      ...prev,
+      {
+        id: uid(),
+        label: `Câmp ${prev.length + 1}`,
+        selector: "",
+        value: "",
+        type: "text",
+      },
+    ]);
+  };
+
+  const updateCreateField = (id: string, patch: Partial<FieldConfig>) => {
+    setFieldsCreate((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, ...patch } : f)),
+    );
+  };
+
+  const removeCreateField = (id: string) => {
+    setFieldsCreate((prev) => prev.filter((f) => f.id !== id));
+  };
+
+  const addCreateField = () => {
+    setFieldsCreate((prev) => [
       ...prev,
       {
         id: uid(),
@@ -1196,78 +1584,11 @@ export default function Home() {
               </button>
             </div>
 
-            <div className="flex flex-col gap-3">
-              {fields.map((f) => (
-                <div
-                  key={f.id}
-                  className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950"
-                >
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <input
-                      type="text"
-                      value={f.label}
-                      onChange={(e) =>
-                        updateField(f.id, { label: e.target.value })
-                      }
-                      placeholder="Etichetă (ex. Username)"
-                      className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm font-medium outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
-                    />
-                    <button
-                      onClick={() => removeField(f.id)}
-                      title="Șterge câmpul"
-                      className="rounded-md px-2 py-1 text-sm text-red-600 transition hover:bg-red-50 dark:hover:bg-red-950"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <input
-                      type="text"
-                      value={f.selector}
-                      onChange={(e) =>
-                        updateField(f.id, { selector: e.target.value })
-                      }
-                      placeholder="Selector CSS (ex. #loginForm\\:username)"
-                      className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 font-mono text-xs outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
-                    />
-                    <div className="flex gap-2">
-                      <select
-                        value={f.type}
-                        onChange={(e) =>
-                          updateField(f.id, {
-                            type: e.target.value as FieldType,
-                          })
-                        }
-                        className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
-                      >
-                        {(Object.keys(FIELD_TYPE_LABELS) as FieldType[]).map(
-                          (t) => (
-                            <option key={t} value={t}>
-                              {FIELD_TYPE_LABELS[t]}
-                            </option>
-                          ),
-                        )}
-                      </select>
-                      <input
-                        type={f.type === "password" ? "password" : "text"}
-                        value={f.value}
-                        onChange={(e) =>
-                          updateField(f.id, { value: e.target.value })
-                        }
-                        placeholder={
-                          f.type === "checkbox"
-                            ? "true / false"
-                            : f.type === "radio"
-                              ? "valoarea opțiunii"
-                              : "Valoare de completat"
-                        }
-                        className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 font-mono text-xs outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <FieldsEditor
+              fields={fields}
+              onChange={updateField}
+              onRemove={removeField}
+            />
 
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950">
               <label className="flex items-center gap-2 text-sm font-medium">
@@ -1391,6 +1712,60 @@ export default function Home() {
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     {parseDates(datesText).length} zile în listă
                   </p>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={insertEnabled}
+                  onChange={(e) => setInsertEnabled(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                Insert Raport + completează formularul de creare + Save
+              </label>
+              {insertEnabled && (
+                <div className="mt-2 flex flex-col gap-2">
+                  <input
+                    type="text"
+                    value={insertSelector}
+                    onChange={(e) => setInsertSelector(e.target.value)}
+                    placeholder="Buton „Insert Raport Individual Zilnic” (ex. #raportForm\\:j_idt96)"
+                    className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 font-mono text-xs outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+                  <input
+                    type="text"
+                    value={saveSelector}
+                    onChange={(e) => setSaveSelector(e.target.value)}
+                    placeholder='Buton Save (ex. input[name="createForm\:j_idt121"])'
+                    className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 font-mono text-xs outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+                  <input
+                    type="text"
+                    value={indexSelector}
+                    onChange={(e) => setIndexSelector(e.target.value)}
+                    placeholder="Buton „I N D E X” pentru ziua următoare (ex. #j_idt16)"
+                    className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 font-mono text-xs outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                      Câmpuri pagina de creare
+                    </span>
+                    <button
+                      onClick={addCreateField}
+                      className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold transition hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                    >
+                      + Adaugă câmp
+                    </button>
+                  </div>
+                  <FieldsEditor
+                    fields={fieldsCreate}
+                    onChange={updateCreateField}
+                    onRemove={removeCreateField}
+                  />
                 </div>
               )}
             </div>
