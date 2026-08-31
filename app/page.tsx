@@ -109,12 +109,13 @@ function statusBadge(status: FillStatus) {
   }
 }
 
-type SpeedKey = "rapid" | "normal" | "lent";
+type SpeedKey = "turbo" | "rapid" | "normal" | "lent";
 
 const SPEEDS: Record<
   SpeedKey,
   { label: string; field: number; click: number; nav: number; char: number }
 > = {
+  turbo: { label: "Turbo", field: 120, click: 200, nav: 120, char: 5 },
   rapid: { label: "Rapid", field: 350, click: 450, nav: 400, char: 25 },
   normal: { label: "Normal", field: 800, click: 900, nav: 800, char: 55 },
   lent: { label: "Lent", field: 1600, click: 1600, nav: 1400, char: 110 },
@@ -250,7 +251,9 @@ function dispatchKeyEvent(
 }
 
 // tastează textul caracter cu caracter (keydown → valoare → input → keyup),
-// exact cum ar face sendKeys din Selenium cu delay între taste
+// exact cum ar face sendKeys din Selenium cu delay între taste;
+// la delay foarte mic (Turbo) tastăm tot textul sincron, ca să nu depindem
+// de throttle-ul de timer al browserului pentru pagini din fundal
 async function typeText(
   doc: Document,
   el: Element,
@@ -263,6 +266,7 @@ async function typeText(
   } catch {
     // ignorăm
   }
+  const instant = charDelay <= 10;
   let acc = "";
   for (const ch of text) {
     if (typeof ch !== "string" || ch.length === 0) continue;
@@ -271,7 +275,10 @@ async function typeText(
     nativeSetter(el, acc);
     el.dispatchEvent(new Event("input", { bubbles: true }));
     dispatchKeyEvent(doc, el, "keyup", ch);
-    await sleep(charDelay);
+    if (!instant) await sleep(charDelay);
+  }
+  if (instant && text.length > 0) {
+    await sleep(Math.max(5, charDelay * text.length));
   }
   el.dispatchEvent(new Event("change", { bubbles: true }));
 }
@@ -310,7 +317,7 @@ function waitForAjax(doc: Document, timeoutMs: number): Promise<void> {
       hasApi = false;
     }
     if (!hasApi) {
-      setTimeout(resolve, Math.min(timeoutMs, 1200));
+      setTimeout(resolve, Math.min(timeoutMs, 300));
       return;
     }
     const t0 = Date.now();
@@ -445,7 +452,7 @@ async function waitForLoginResult(
     if (!d) return null;
     if (d !== initialDoc) return d; // pagina a navigat
     if (readGrowlText(d)) return null; // a apărut un mesaj de eroare, fără navigare
-    await sleep(400);
+    await sleep(250);
   }
   return null;
 }
@@ -486,7 +493,7 @@ async function selectComboboxItem(
   } catch {
     // ignorăm
   }
-  await sleep(400);
+  await sleep(200);
 
   const ownsId = html.getAttribute("aria-owns") ?? "";
   let items: HTMLElement[] = [];
@@ -770,6 +777,7 @@ export default function Home() {
       if (savedClickSel !== null) setClickSelector(savedClickSel);
       const savedSpeed = localStorage.getItem("fa-speed");
       if (
+        savedSpeed === "turbo" ||
         savedSpeed === "rapid" ||
         savedSpeed === "normal" ||
         savedSpeed === "lent"
@@ -1073,28 +1081,33 @@ export default function Home() {
       }
       if (!iframe || !iframe.src.includes(`n=${targetNonce}`)) return null;
 
-      // așteptăm evenimentul load (cu verificare de readyState, ca să nu ratăm
-      // un load deja încheiat din cauza cache-ului)
+      // așteptăm evenimentul load al paginii reale (iframe-ul e proaspăt montat,
+      // deci load-ul va veni garantat; readyState „complete” de la about:blank
+      // nu trebuie confundat cu pagina încărcată)
       await new Promise<void>((resolve) => {
-        let done = false;
-        const finish = () => {
-          if (done) return;
-          done = true;
+        const onLoad = () => {
           iframe!.removeEventListener("load", onLoad);
           resolve();
         };
-        const onLoad = () => finish();
         iframe!.addEventListener("load", onLoad);
-        try {
-          if (iframe!.contentWindow?.document?.readyState === "complete") {
-            finish();
-            return;
-          }
-        } catch {
-          // ignorăm — așteptăm evenimentul load
-        }
-        setTimeout(finish, 20000);
+        setTimeout(() => {
+          iframe!.removeEventListener("load", onLoad);
+          resolve();
+        }, 20000);
       });
+
+      // siguranță: așteptăm ca documentul să fie pagina proxiată (nu about:blank)
+      for (let i = 0; i < 150; i++) {
+        const d = getIframeDoc(iframe);
+        let docUrl = "";
+        try {
+          docUrl = d?.URL ?? "";
+        } catch {
+          docUrl = "";
+        }
+        if (docUrl.includes("/api/proxy")) break;
+        await sleep(20);
+      }
       await sleep(navDelay);
       return getIframeDoc(iframe);
     },
@@ -1239,7 +1252,7 @@ export default function Home() {
           );
         }
         setTimeout(unhighlight, 1500);
-        await sleep(2000);
+        await sleep(1200);
 
         // diagnostic: ce a răspuns serverul la AJAX-ul de login
         const spyW = doc.defaultView as SpyWindow | null;
